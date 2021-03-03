@@ -49,7 +49,7 @@ impl std::fmt::Display for DisplayCreationError {
 }
 
 impl Display {
-	/// Open a display to X server using XOpenDisplay at specified display domain (e.g. ":0.0")
+	/// Open a display to X server using XOpenDisplay at specified display domain
 	/// ```rust
 	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
@@ -58,7 +58,7 @@ impl Display {
 	/// ```
 	/// # Errors
 	/// 
-	/// If the call to `XOpenDisplay` fails, or `display_identifier` couldn't be converted to a C String, then this function will
+	/// If the call to `XOpenDisplay` fails, or if `display_identifier` couldn't be converted to a C String, then this function will
 	/// return a DisplayCreationError with details 
 	pub fn new(display_identifier: impl Into<String>) -> Result<Self, DisplayCreationError> {
 		match CString::new(display_identifier.into()) {
@@ -88,10 +88,15 @@ impl Display {
 	/// Take a screenshot of the display.
 	///
 	/// ```rust
+	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
 	///		let screenshot = display.screenshot();
-	///		// only with "save" feature
+	///		#[cfg(feature = "save")]
+	///		// With "save" feature enabled
 	///		screenshot.unwrap().save_as("./screenshot.png");
+	///		#[cfg(not(feature = "save"))]
+	/// 	// Access to raw image data without "save" feature
+	///		let raw_data = unsafe { screenshot.unwrap().as_raw_slice() };
 	/// }
 	/// ```
 	///
@@ -134,13 +139,12 @@ impl Image {
 	#[cfg(feature = "image")]
 	/// Saves the screenshot to file
 	///
-	///	You can save as any filetype that the `image` supports
+	///	You can save as any filetype that the `image`-crate supports
 	///
 	/// ```rust
 	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
 	///		let screenshot = display.screenshot();
-	///		// only with "save" feature
 	///		screenshot.unwrap().save_as("./screenshot.png");
 	/// }
 	/// ```
@@ -154,17 +158,44 @@ impl Image {
 	/// 
 
 	pub fn save_as(self, file: impl Into<PathBuf>) -> std::io::Result<()> {
-		use image::save_buffer;
+		use image::{save_buffer, ColorType};
 		// Restructure buffer to fit RGB instead of BGRP
 		let (width, height) = (self.width, self.height);
 
 		let buffer = unsafe { self.as_raw_slice() };
 		let buffer = buffer.into_iter().map(|brg| std::array::IntoIter::new([brg.r, brg.g, brg.b])).flatten().collect::<Vec<u8>>();
 
-		match save_buffer(file.into(), &buffer, width, height, image::ColorType::Rgb8) {
+		match save_buffer(file.into(), &buffer, width, height, ColorType::Rgb8) {
 			Ok(()) => Ok(()),
 			Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Couldn't write to file"))
 		}
+	}
+
+	#[cfg(feature = "save")]
+	/// Saves the raw screenshot to PNG in memory
+	///
+	/// ```rust
+	///	# use rxscreen::{Display, Image};
+	/// if let Ok(display) = Display::new(":0.0") {
+	///		let screenshot = display.screenshot().unwrap();
+	///		let data = screenshot.save_to_memory();
+	///		// `data` now contains the encoded PNG file
+	/// }
+	/// ```
+	pub fn save_to_memory(self) -> std::io::Result<Vec<u8>>{
+		use image::{codecs::png::PngEncoder, ColorType};
+		
+		// Restructure BGR8 into RGB8
+		let buffer = unsafe { self.as_raw_slice() };
+		let buffer = buffer.into_iter().map(|brg| std::array::IntoIter::new([brg.r, brg.g, brg.b])).flatten().collect::<Vec<u8>>();
+
+		let mut png_data: Vec<u8> = vec![];
+
+		let encoder = PngEncoder::new(&mut png_data);
+		let (width, height) = (self.width, self.height);
+		encoder.encode(&buffer, width, height, ColorType::Rgb8);
+		
+		Ok(png_data)
 	}
 }
 

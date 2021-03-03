@@ -1,1 +1,4 @@
 /target
+*.png
+.vscode
+*.code-workspace
