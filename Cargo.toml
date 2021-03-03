@@ -1,0 +1,19 @@
+[package]
+name = "rxscreen"
+description = "A wrapper around libx11 to capture screenshots and save them"
+version = "0.1.0"
+authors = ["l0nelybyte <justin@lonelybyte.com>"]
+edition = "2018"
+license = "MIT"
+repository = "https://github.com/l0nelybyte/rxscreen"
+keywords = ["x11", "x", "screenshot", "screen", "display", "xserver screenshot", "x11 screenshot"]
+readme = "README.md"
+
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+save = ["image"]
+
+[dependencies]
+image = { version = "^0.23", optional = true }
