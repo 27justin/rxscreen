@@ -1,4 +1,5 @@
-use std::{ffi::{CString}, os::raw::{c_char, c_int, c_uint, c_ulong}, path::PathBuf, slice::Iter, u32};
+
+use std::{ffi::{CString}, os::raw::{c_char, c_int, c_uint, c_ulong}, u32, path::PathBuf};
 
 mod ffi;
 use ffi::*;
@@ -162,8 +163,13 @@ impl Image {
 		// Restructure buffer to fit RGB instead of BGRP
 		let (width, height) = (self.width, self.height);
 
+		fn thrice<T>(first: T, second: T, third: T) -> impl Iterator<Item = T> {
+			use std::iter::once;
+			once(first).chain(once(second)).chain(once(third))
+		}
+
 		let buffer = unsafe { self.as_raw_slice() };
-		let buffer = buffer.into_iter().map(|brg| std::array::IntoIter::new([brg.r, brg.g, brg.b])).flatten().collect::<Vec<u8>>();
+		let buffer = buffer.into_iter().map(|brg| thrice(brg.r, brg.g, brg.b)).flatten().collect::<Vec<u8>>();
 
 		match save_buffer(file.into(), &buffer, width, height, ColorType::Rgb8) {
 			Ok(()) => Ok(()),
@@ -185,9 +191,14 @@ impl Image {
 	pub fn save_to_memory(self) -> std::io::Result<Vec<u8>>{
 		use image::{codecs::png::PngEncoder, ColorType};
 		
+		fn thrice<T>(first: T, second: T, third: T) -> impl Iterator<Item = T> {
+			use std::iter::once;
+			once(first).chain(once(second)).chain(once(third))
+		}
+
 		// Restructure BGR8 into RGB8
 		let buffer = unsafe { self.as_raw_slice() };
-		let buffer = buffer.into_iter().map(|brg| std::array::IntoIter::new([brg.r, brg.g, brg.b])).flatten().collect::<Vec<u8>>();
+		let buffer = buffer.into_iter().map(|brg| thrice(brg.r, brg.g, brg.b)).flatten().collect::<Vec<u8>>();
 
 		let mut png_data: Vec<u8> = vec![];
 
@@ -244,22 +255,4 @@ impl From<&Bgr8> for Rgb8 {
 			b: bgr.b
 		}
 	}
-}
-
-impl IntoIterator for Bgr8 {
-    type Item = u8;
-    type IntoIter = std::array::IntoIter<u8, 3_usize>;
-
-    fn into_iter(self) -> Self::IntoIter {
-		std::array::IntoIter::new([self.b, self.r, self.g])
-    }
-}
-
-impl IntoIterator for &Bgr8 {
-    type Item = u8;
-    type IntoIter = std::array::IntoIter<u8, 3_usize>;
-
-    fn into_iter(self) -> Self::IntoIter {
-		std::array::IntoIter::new([self.b, self.r, self.g])
-    }
 }
