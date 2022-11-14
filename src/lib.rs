@@ -1,43 +1,28 @@
 
 use std::{ffi::{CString}, os::raw::{c_char, c_int, c_uint, c_ulong}, u32, path::PathBuf};
 
-mod ffi;
-use ffi::*;
-pub use ffi::{Bgr8, Rgb8};
+pub mod ffi;
+pub use ffi::{Rgb8, Bgr8};
+pub mod graphics;
 
-type XDisplay = *const c_char;
-type Window = u32;
+#[cfg(feature = "xrandr")]
+pub mod monitor;
 
-extern "C" {
-	fn XOpenDisplay(display: *const c_char) -> XDisplay;
-	fn XDefaultRootWindow(display: XDisplay) -> Window;
-	// Status XGetWindowAttributes(Display *display, Window w, XWindowAttributes *window_attributes_return); 
-	fn XGetGeometry(
-		display: XDisplay,
-		screen: Window,
-		root_return: &mut Window,
-		x_return: &mut c_int,
-		y_return: &mut c_int,
-		width_return: &mut c_uint,
-		height_return: &mut c_uint,
-		border_width_return: &mut c_uint,
-		depth_return: &mut c_uint) -> ();
-	fn XCloseDisplay(display: XDisplay);
-	fn XGetImage(display: XDisplay, d: Window, x: c_int, y: c_int, width: c_uint, height: c_uint, plane_mask: c_ulong, format: c_int) -> *const XImage;
-	fn XDestroyImage(image: *const XImage);
-}
+#[cfg(feature = "shm")]
+pub mod shm;
+
+use ffi::{*, constants::{AllPlanes, ZPixmap}};
+
 
 pub struct Display {
-	connection: *const c_char,
-	window: u32,
+	connection: ffi::XDisplay,
+	window: ffi::XWindow,
 	pub width: u32,
 	pub height: u32,
 }
 
 pub struct Image {
-	_image: *const XImage,
-	width: u32,
-	height: u32,
+	raw: *const XImage
 }
 
 #[derive(Debug)]
@@ -67,6 +52,7 @@ impl Display {
 				let display = unsafe { XOpenDisplay(location.as_ptr()) };
 				if !display.is_null() {
 					let mut default_window = unsafe { XDefaultRootWindow(display) };
+					//let mut default_window = unsafe { XRootWindow(display, 0) };
 	
 					let (mut width, mut height)= (0u32, 0u32);
 					unsafe { XGetGeometry(display, default_window, &mut default_window, &mut 0, 
@@ -86,66 +72,114 @@ impl Display {
 		}
 	}
 
-	/// Take a screenshot of the display.
+    
+	/// Take a capture of the display.
 	///
 	/// ```rust
 	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		let screenshot = display.screenshot();
+	///		let capture = display.capture();
 	///		#[cfg(feature = "save")]
 	///		// With "save" feature enabled
-	///		screenshot.unwrap().save_as("./screenshot.png");
+	///		capture.unwrap().save_as("./capture.png");
 	///		#[cfg(not(feature = "save"))]
 	/// 	// Access to raw image data without "save" feature
-	///		let raw_data = unsafe { screenshot.unwrap().as_raw_slice() };
+	///		let raw_data = unsafe { capture.unwrap().as_raw_slice() };
 	/// }
 	/// ```
 	///
 	/// # Errors
 	/// 
 	/// This function fails silently if the call to `XGetImage` fails for some reason.
-	pub fn screenshot(&self) -> Result<Image, ()> {
-		let image = unsafe { XGetImage(self.connection, self.window, 0, 0, self.width, self.height, AllPlanes, ZPixmap) };
+	pub fn capture(&self) -> Result<Image, ()> {
+		let image = unsafe { XGetImage(self.connection, self.window, 0, 0, self.width, self.height, AllPlanes, ZPixmap as i32) };
 		if !image.is_null() {
 			Ok(Image {
-				_image: image,
-				width: self.width,
-				height: self.height
+			    raw: image
 			})
 		}else{
 			Err(())
 		}
 	}
+
+
 }
 
 impl Image {
+    pub unsafe fn from_raw_parts(display: &Display, data: *const u8, width: u32, height: u32) -> Self {
+        let visual = XDefaultVisual(display.connection, 0);
+        let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const i8, width, height, 32, 0);
+        // TODO: check ximg for null-ptr
+        Self {
+            raw: ximg
+        }
+    }
+
+    pub fn width(&self) -> i32 {
+        unsafe {
+            (*self.raw).width
+        }
+    }
+    pub fn height(&self) -> i32 {
+        unsafe {
+            (*self.raw).height
+        }
+    }
+
 	/// Turns the internal data pointer to a slice of [`Bgr8`]
 	///
 	/// ```rust
 	/// # use rxscreen::{Display, Bgr8, Rgb8};
 	/// // Turn Bgr8 into Rgb8
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		let screenshot = display.screenshot();
-	///		let rgb_buffer: Vec<Rgb8> = unsafe{ screenshot.unwrap().as_raw_slice() }
+	///		let capture = display.capture();
+	///		let rgb_buffer: Vec<Rgb8> = unsafe{ capture.unwrap().as_raw_slice() }
 	///									.into_iter()
 	///									.map(|bgr| Rgb8::from(bgr))
 	///									.collect();
 	/// }
 	/// ```
 	pub unsafe fn as_raw_slice<'a>(&self) -> &'a [Bgr8] {
-		let blob_length = ((*self._image).width * (*self._image).height) as usize;
-		std::slice::from_raw_parts((*self._image).data as *const Bgr8, blob_length)
+		let blob_length = ((*self.raw).width * (*self.raw).height) as usize;
+		std::slice::from_raw_parts((*self.raw).data as *const Bgr8, blob_length)
 	}
 
+    pub unsafe fn as_bytes<'a>(&'a self) -> &'a [u8] {
+        let length = self.width() * self.height() * ((*self.raw).depth / 8);
+        std::slice::from_raw_parts((*self.raw).data as *const u8, length as usize)
+    }
+    pub unsafe fn as_bytes_mut<'a>(&'a mut self) -> &'a mut [u8] {
+        let length = self.width() * self.height() * ((*self.raw).depth / 8);
+        let mut slice = std::slice::from_raw_parts_mut((*self.raw).data as *mut u8, length as usize);
+        slice
+    }
+
+    pub fn empty(display: &Display, width: u32, height: u32) -> Self {
+        unsafe {
+            let visual = XDefaultVisual(display.connection, 0);
+            let img_size = (width * height * (32 / 8)) as usize;
+            let data = libc::malloc(img_size);
+
+            let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const i8, width, height, 32, 0);
+            Self {
+                raw: ximg
+            }
+        }
+    }
+
+    pub unsafe fn as_ptr(&self) -> *const u8 {
+        (*self.raw).data as *const u8
+    }
+
 	#[cfg(feature = "image")]
-	/// Saves the screenshot to file
+	/// Saves the image to file
 	///
 	///	You can save as any filetype that the `image`-crate supports
 	///
 	/// ```rust
 	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		let screenshot = display.screenshot();
+	///		let screenshot = display.capture();
 	///		screenshot.unwrap().save_as("./screenshot.png");
 	/// }
 	/// ```
@@ -153,15 +187,15 @@ impl Image {
 	/// # Warning
 	///
 	/// **Without** configuring any opt-level (debug build) this function may take upwards of 10 seconds for one screenshot
-	/// (measured on debug build, 5760x1080 screenshot, ryzen 7 2700x, gtx 1050 ti)
+	/// (measured on debug build, 5760x1080 capture, ryzen 7 2700x, gtx 1050 ti)
 	///
-	/// **With opt-level 3** it takes 0.2 seconds for a screenshot of the same size.
+	/// **With opt-level 3** it takes 0.2 seconds for a capture of the same size.
 	/// 
 
 	pub fn save_as(self, file: impl Into<PathBuf>) -> std::io::Result<()> {
 		use image::{save_buffer, ColorType};
 		// Restructure buffer to fit RGB instead of BGRP
-		let (width, height) = (self.width, self.height);
+		let (width, height) = unsafe { ((*self.raw).width, (*self.raw).height) };
 
 		fn thrice<T>(first: T, second: T, third: T) -> impl Iterator<Item = T> {
 			use std::iter::once;
@@ -171,19 +205,19 @@ impl Image {
 		let buffer = unsafe { self.as_raw_slice() };
 		let buffer = buffer.into_iter().map(|brg| thrice(brg.r, brg.g, brg.b)).flatten().collect::<Vec<u8>>();
 
-		match save_buffer(file.into(), &buffer, width, height, ColorType::Rgb8) {
+		match save_buffer(file.into(), &buffer, width as u32, height as u32, ColorType::Rgb8) {
 			Ok(()) => Ok(()),
 			Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Couldn't write to file"))
 		}
 	}
 
 	#[cfg(feature = "save")]
-	/// Saves the raw screenshot to PNG in memory
+	/// Saves the raw capture to PNG in memory
 	///
 	/// ```rust
 	///	# use rxscreen::{Display, Image};
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		let screenshot = display.screenshot().unwrap();
+	///		let screenshot = display.capture().unwrap();
 	///		let data = screenshot.save_to_memory();
 	///		// `data` now contains the encoded PNG file
 	/// }
@@ -203,8 +237,8 @@ impl Image {
 		let mut png_data: Vec<u8> = vec![];
 
 		let encoder = PngEncoder::new(&mut png_data);
-		let (width, height) = (self.width, self.height);
-		encoder.encode(&buffer, width, height, ColorType::Rgb8);
+		let (width, height) = unsafe { ((*self.raw).width, (*self.raw).height) };
+		encoder.encode(&buffer, width as u32, height as u32, ColorType::Rgb8);
 		
 		Ok(png_data)
 	}
@@ -212,7 +246,7 @@ impl Image {
 
 impl Drop for Image {
 	fn drop(&mut self) {
-		unsafe{ crate::XDestroyImage(self._image); }
+		unsafe{ crate::XDestroyImage(self.raw); }
 	}
 }
 
