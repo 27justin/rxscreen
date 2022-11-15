@@ -1,9 +1,54 @@
+//! `rxscreen` is designed to be a simple, easy to use library around various functionality of the
+//! x11 server and corresponding extensions.
+//! Implemented features:
+//! - X11
+//! - Xrandr (via the `xrandr` feature)
+//! - MIT-SHM (via the `shm` feature)
+//!
+//! # Examples
+//!
+//! ### Capture a screenshot of the entire X11 display
+//! ```rust
+//! # use rxscreen::Display;
+//! if let Ok(display) = Display::new(":0.0") {
+//!    let capture = display.capture()
+//!                     .unwrap();
+//!    // `capture` is now an `Image` containing Bgr8 data of the image.
+//!    // You can now save it to a file, or do whatever you want with it.
+//! }
+//! ```
+//!
+//! ### Capture a screenshot of a specific monitor (requires the "xrandr" feature)
+//! ```rust
+//! #[cfg(feature = "xrandr")]
+//! # use rxscreen::{Display, Monitor};
+//! #[cfg(feature = "xrandr")]
+//! if let Ok(display) = Display::new(":0.0") {
+//!   if let Some(monitor) = display.monitors()
+//!                              .iter()
+//!                              .find(|monitor| monitor.primary()) {
+//!       let capture = display.capture_area(
+//!               (monitor.x as u32, monitor.y as u32),
+//!               (monitor.width as u32, monitor.height as u32)
+//!           ).unwrap();
+//!       // `capture` is now an `Image` containing the screenshot of the primary monitor as Bgr8 data.
+//!       // You can now save it to a file, or do whatever you want with it.
+//!    }
+//! }
+//!
 
-use std::{ffi::{CString}, os::raw::{c_char, c_int, c_uint, c_ulong}, u32, path::PathBuf};
+
+
+
+
+
+
+
+use std::ffi::CString;
 
 pub mod ffi;
 pub use ffi::{Rgb8, Bgr8};
-pub mod graphics;
+//mod graphics;
 
 #[cfg(feature = "xrandr")]
 pub mod monitor;
@@ -39,7 +84,7 @@ impl Display {
 	/// ```rust
 	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		// do something with display
+	///     // do something with display
 	/// }
 	/// ```
 	/// # Errors
@@ -73,18 +118,18 @@ impl Display {
 	}
 
     
-	/// Take a capture of the display.
+	/// Take a screenshot of the display.
 	///
 	/// ```rust
 	/// # use rxscreen::Display;
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		let capture = display.capture();
-	///		#[cfg(feature = "save")]
-	///		// With "save" feature enabled
-	///		capture.unwrap().save_as("./capture.png");
-	///		#[cfg(not(feature = "save"))]
-	/// 	// Access to raw image data without "save" feature
-	///		let raw_data = unsafe { capture.unwrap().as_raw_slice() };
+	///     let capture = display.capture();
+	///     #[cfg(feature = "save")]
+	///     // With "save" feature enabled
+	///     capture.unwrap().save_as("./capture.png");
+	///     #[cfg(not(feature = "save"))]
+	///     // Access to raw image data without "save" feature
+	///     let raw_data = unsafe { capture.unwrap().as_raw_slice() };
 	/// }
 	/// ```
 	///
@@ -102,6 +147,31 @@ impl Display {
 		}
 	}
 
+	/// Take a screenshot of the provided area.
+	///
+	/// ```rust
+	/// # use rxscreen::Display;
+	/// if let Ok(display) = Display::new(":0.0") {
+	///     // Capture a 300x300 area of the display, starting at `1920 / 2 - 300` (x)
+	///     // and `1080 / 2 - 300` (y)
+	///     // i.e. the 300px in the center of the display (if it's a 1920x1080 display)
+	///     let capture = display.capture_area((1920 / 2 - 300, 1080 / 2 - 300), (300, 300));
+	/// }
+	/// ```
+	///
+	/// # Errors
+	/// 
+	/// This function fails silently if the call to `XGetImage` fails for some reason.
+	pub fn capture_area(&self, offset: (u32, u32), size: (u32, u32)) -> Result<Image, ()> {
+		let image = unsafe { XGetImage(self.connection, self.window, offset.0 as i32, offset.1 as i32, size.0, size.1, AllPlanes, ZPixmap as i32) };
+		if !image.is_null() {
+			Ok(Image {
+			    raw: image
+			})
+		}else{
+			Err(())
+		}
+	}
 
 }
 
@@ -132,11 +202,11 @@ impl Image {
 	/// # use rxscreen::{Display, Bgr8, Rgb8};
 	/// // Turn Bgr8 into Rgb8
 	/// if let Ok(display) = Display::new(":0.0") {
-	///		let capture = display.capture();
-	///		let rgb_buffer: Vec<Rgb8> = unsafe{ capture.unwrap().as_raw_slice() }
-	///									.into_iter()
-	///									.map(|bgr| Rgb8::from(bgr))
-	///									.collect();
+	///     let capture = display.capture();
+	///     let rgb_buffer: Vec<Rgb8> = unsafe{ capture.unwrap().as_raw_slice() }
+	///                                 .into_iter()
+	///                                 .map(|bgr| Rgb8::from(bgr))
+	///                                 .collect();
 	/// }
 	/// ```
 	pub unsafe fn as_raw_slice<'a>(&self) -> &'a [Bgr8] {
@@ -144,16 +214,18 @@ impl Image {
 		std::slice::from_raw_parts((*self.raw).data as *const Bgr8, blob_length)
 	}
 
+    /// Returns a slice of the raw image data
     pub unsafe fn as_bytes<'a>(&'a self) -> &'a [u8] {
         let length = self.width() * self.height() * ((*self.raw).depth / 8);
         std::slice::from_raw_parts((*self.raw).data as *const u8, length as usize)
     }
     pub unsafe fn as_bytes_mut<'a>(&'a mut self) -> &'a mut [u8] {
         let length = self.width() * self.height() * ((*self.raw).depth / 8);
-        let mut slice = std::slice::from_raw_parts_mut((*self.raw).data as *mut u8, length as usize);
+        let slice = std::slice::from_raw_parts_mut((*self.raw).data as *mut u8, length as usize);
         slice
     }
 
+    /// Create a new empty image through the X11 `XCreateImage` function.
     pub fn empty(display: &Display, width: u32, height: u32) -> Self {
         unsafe {
             let visual = XDefaultVisual(display.connection, 0);
@@ -167,6 +239,7 @@ impl Image {
         }
     }
 
+    /// Returns the pointer for the internal data buffer.
     pub unsafe fn as_ptr(&self) -> *const u8 {
         (*self.raw).data as *const u8
     }
@@ -192,7 +265,7 @@ impl Image {
 	/// **With opt-level 3** it takes 0.2 seconds for a capture of the same size.
 	/// 
 
-	pub fn save_as(self, file: impl Into<PathBuf>) -> std::io::Result<()> {
+	pub fn save_as(&self, file: impl Into<std::path::PathBuf>) -> std::io::Result<()> {
 		use image::{save_buffer, ColorType};
 		// Restructure buffer to fit RGB instead of BGRP
 		let (width, height) = unsafe { ((*self.raw).width, (*self.raw).height) };

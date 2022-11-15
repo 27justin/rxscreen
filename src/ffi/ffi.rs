@@ -1,4 +1,4 @@
-use std::{ffi::{c_void, CString, CStr}, os::raw::{c_char, c_int, c_ulong, c_uint, c_long}};
+use std::os::raw::{c_char, c_int, c_ulong, c_uint, c_long};
 
 use super::events::XEvent;
 
@@ -44,7 +44,7 @@ extern "C" {
 		width_return: &mut c_uint,
 		height_return: &mut c_uint,
 		border_width_return: &mut c_uint,
-		depth_return: &mut c_uint) -> ();
+		depth_return: &mut c_uint);
 	pub fn XCloseDisplay(display: XDisplay);
 	pub fn XGetImage(display: XDisplay, d: XWindow, x: c_int, y: c_int, width: c_uint, height: c_uint, plane_mask: c_ulong, format: c_int) -> *mut XImage;
     pub fn XCreateImage(display: XDisplay, visual: *const Visual, depth: c_uint, format: c_int, offset: c_int, data: *const c_char, width: c_uint, height: c_uint, bitmap_pad: c_int, bytes_per_line: c_int) -> *mut XImage;
@@ -134,6 +134,7 @@ pub struct Screen {
     root_input_mask: c_long
 }
 
+#[derive(Clone, PartialEq, Debug, Copy)]
 #[repr(C)]
 pub struct Bgr8 {
     pub b: u8,
@@ -142,6 +143,7 @@ pub struct Bgr8 {
     pub pad: u8
 }
 
+#[derive(Clone, PartialEq, Debug, Copy)]
 #[repr(C)]
 pub struct Rgb8 {
     pub r: u8,

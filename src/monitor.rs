@@ -1,7 +1,40 @@
+//! 
+//! Exposes the X11 `xrandr` extension.
+//!
+//! This module contains the interface to the xrandr x11 extension
+//! which allows for querying monitors connected to the display.
+//!
+//! [xrandr](https://en.wikipedia.org/wiki/Xrandr)
+//! ```rust
+//! # use rxscreen::Display;
+//! if let Ok(display) = Display::new(":0.0") {
+//!    let monitors = display.monitors();
+//!    for monitor in monitors {
+//!        println!("Monitor: {}", monitor.name());
+//!        println!("\tPrimary: {}", monitor.primary());
+//!        println!("\tSize: {}x{}", monitor.width, monitor.height);
+//!        println!("\tPosition: {}x{}", monitor.x, monitor.y);
+//!    }
+//! }
+//!
+
+
 use crate::{Display, ffi::{xrandr::{*}, XGetAtomName}};
 
 impl Display {
     #[cfg(feature = "xrandr")]
+    /// Query every monitor connected to the display
+    /// ```rust
+    /// # use rxscreen::Display;
+    /// if let Ok(display) = Display::new(":0.0") {
+    ///    let monitors = display.monitors();
+    ///    for monitor in monitors {
+    ///        println!("Monitor: {}", monitor.name());
+    ///        println!("\tPrimary: {}", monitor.primary());
+    ///        println!("\tSize: {}x{}", monitor.width, monitor.height);
+    ///        println!("\tPosition: {}x{}", monitor.x, monitor.y);
+    ///    }
+    /// }
     pub fn monitors(&self) -> Vec<Monitor> {
         use std::ffi::CStr;
         unsafe {
@@ -39,6 +72,9 @@ pub struct Monitor {
     pub(crate) primary: bool
 }
 impl Monitor {
+    pub fn name(&self) -> &str {
+        &self.name[..]
+    }
     pub fn x(&self) -> i32 {
         self.x
     }

@@ -1,3 +1,35 @@
+//!
+//! Exposes the X11 `MIT-SHM` extension.
+//!
+//! This module contains the interface to the MIT-SHM x11 extension
+//! which allows for zero-copy sharing of data between the X server.
+//! This is useful for applications which have to capture screenshots in rapid succession,
+//! as for example, recording software.
+//!
+//! [MIT-SHM](https://en.wikipedia.org/wiki/MIT-SHM)
+//! [X11 Extension](https://www.x.org/releases/X11R7.7/doc/xextproto/shm.html)
+//!
+//! # Usage
+//! ```rust
+//! # use rxscreen::display;
+//! #![feature = "xrandr"]
+//! if let Ok(display) = Display::new(":0.0") {
+//!     let shm = display.shm();
+//!     // Now we can configure the module to run at specific coordinates, and specific sizes.
+//!     // In this example we will only capture the primary monitor, take a look at the
+//!     // `ShmBuilder` functions for more configuration examples.
+//!     if let Some(shm) = shm.monitor(display.monitors().iter().find(|m| m.primary()).unwrap())
+//!             .build() {
+//!         // Now the Shm connection is estabilished and we can take screencaptures through
+//!         // `SharedSession::capture` which returns the same struct that `Display::capture` does.
+//!     }
+//! }
+//!
+//! ```
+//!
+//!
+
+
 use crate::{Display, Image, ffi::{*, constants::*}};
 use std::ops::Deref;
 use std::pin::Pin;
@@ -28,6 +60,12 @@ impl<'a> SharedSession<'a> {
             }
         }
     }
+    pub fn offset(&self) -> (u32, u32) {
+        self.offset
+    }
+    pub fn area(&self) -> (u32, u32) {
+        self.area
+    }
 }
 impl<'a> Drop for SharedSession<'a> {
     fn drop(&mut self) {
@@ -48,25 +86,55 @@ pub struct ShmBuilder<'a> {
 
 impl<'a> ShmBuilder<'a> {
     #[cfg(feature = "xrandr")]
+    /// Configure the SHM Session to capture a specific monitor.
+    /// ```rust
+    /// # use rxscreen::{Display, Monitor, ShmBuilder};
+    /// if let Ok(display) = Display::new(":0.0") {
+    ///     if let Some(shm) = display.shm()
+    ///                 .monitor(
+    ///                     display.monitors()
+    ///                             .iter()
+    ///                             .find(|monitor| monitor.primary())
+    ///                             .unwrap()
+    ///                 ).build() {
+    ///         // Do something with the shm session
+    ///      }
+    /// }
+    /// ```
     pub fn monitor(mut self, monitor: &crate::monitor::Monitor) -> Self {
         self.offset = (monitor.x as u32, monitor.y as u32);
         self.area = (monitor.width as u32, monitor.height as u32);
         self
     }
     /// Configure the shm module to take captures of every monitor
+    ///
     pub fn full(mut self) -> Self {
         self.offset = (0, 0);
         self.area = (self.display.width as u32, self.display.height as u32);
         self
     }
     /// Set the offset (x, y) and the area (width, height) at which the shared session
-    /// should take captures at
-    /// Calling `ShmBuilder::monitor` will overwrite offset and area
+    /// should take captures at.
     pub fn area(mut self, offset: (u32, u32), area: (u32, u32)) -> Self {
         self.offset = offset;
         self.area = area;
         self
     }
+    /// Initialize the session with the configured parameters.
+    /// Returns `None` if the initialization failed.
+    /// ```rust
+    /// # use rxscreen::{Display, ShmBuilder};
+    /// if let Ok(display) = Display::new(":0.0") {
+    ///    if let Some(shm) = display.shm()
+    ///             .full()
+    ///             .build() {
+    ///             let capture = shm.capture()
+    ///                             .unwrap();
+    ///             // Do something with the shm session
+    ///         }else{
+    ///             // Initialization failed
+    ///     }
+    /// }
     pub fn build(self) -> Result<SharedSession<'a>, ShmError> {
         use shm::*;
         unsafe {

@@ -4,7 +4,6 @@ use crate::ffi::*;
 use crate::ffi::constants::Expose;
 use crate::ffi::constants::ExposureMask;
 use crate::ffi::constants::KeyPressMask;
-use crate::ffi::constants::ZPixmap;
 use crate::ffi::events::XEvent;
 
 
@@ -42,7 +41,7 @@ pub struct Window<'a> {
 }
 
 impl<'a> Window<'a> {
-    pub fn event_loop(&self) -> () {
+    pub fn event_loop(&self) {
         unsafe {
             let mut xev = XEvent { r#type: 0 };
             loop {
@@ -81,8 +80,8 @@ impl<'a> WindowBuilder<'a> {
     }
     pub fn build(self) -> Result<Window<'a>, ()> {
         unsafe {
-            let wd = XBlackPixel(self.display.connection, 0);
-            let ww = XWhitePixel(self.display.connection, 0);
+            let _wd = XBlackPixel(self.display.connection, 0);
+            let _ww = XWhitePixel(self.display.connection, 0);
             let window = XCreateSimpleWindow(self.display.connection, self.display.window, 0, 0, 600, 400, 0, 0, 0);
 
             let visual = XDefaultVisual(self.display.connection, 0);
@@ -114,7 +113,7 @@ impl<'a> WindowBuilder<'a> {
 
 
 impl Display {
-    pub fn new_window<'a>(&'a self) -> WindowBuilder<'a> {
+    fn new_window<'a>(&'a self) -> WindowBuilder<'a> {
         WindowBuilder {
             display: &self,
             offset: (0,0),

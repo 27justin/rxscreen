@@ -1,12 +1,12 @@
 [package]
 name = "rxscreen"
 description = "A wrapper around libx11 to capture screenshots and save them"
-version = "0.1.3"
-authors = ["l0nelybyte <justin@lonelybyte.com>"]
+version = "0.1.4"
+authors = ["27justin <me@justin.cx>"]
 edition = "2018"
 license = "MIT"
-repository = "https://github.com/l0nelybyte/rxscreen"
-keywords = ["x11", "x", "screenshot", "screen", "display"]
+repository = "https://github.com/27justin/rxscreen"
+keywords = ["x11", "x", "screenshot", "screen", "display", "xrandr", "mit-shm", "xshm"]
 readme = "README.md"
 
 build = "build.rs"
