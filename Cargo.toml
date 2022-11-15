@@ -6,7 +6,7 @@ authors = ["27justin <me@justin.cx>"]
 edition = "2018"
 license = "MIT"
 repository = "https://github.com/27justin/rxscreen"
-keywords = ["x11", "x", "screenshot", "screen", "display", "xrandr", "mit-shm", "xshm"]
+keywords = ["x11", "screenshot", "display", "xrandr", "mit-shm"]
 readme = "README.md"
 
 build = "build.rs"
