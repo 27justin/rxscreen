@@ -244,7 +244,7 @@ impl Image {
         (*self.raw).data as *const u8
     }
 
-	#[cfg(feature = "image")]
+	#[cfg(feature = "save")]
 	/// Saves the image to file
 	///
 	///	You can save as any filetype that the `image`-crate supports
