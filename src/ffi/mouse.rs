@@ -1,4 +1,4 @@
-use std::os::raw::{c_char, c_int, c_uint, c_ulong};
+use std::os::raw::{c_int, c_uint};
 
 use crate::ffi::*;
 

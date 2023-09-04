@@ -31,7 +31,6 @@
 
 
 use crate::{Display, Image, ffi::{*, constants::*}};
-use std::ops::Deref;
 use std::pin::Pin;
 
 #[derive(PartialEq, Debug)]
@@ -149,7 +148,7 @@ impl<'a> ShmBuilder<'a> {
                 //libc::memset(shminfo as *mut c_void, 0, std::mem::size_of::<XShmSegmentInfo>());
                 let mut shminfo = Box::pin(XShmSegmentInfo { shmseg: 0, shmid: 0, shmaddr: std::ptr::null(), read_only: 0});
 
-                let mut ximg = XShmCreateImage(self.display.connection, vis, (*vis).bits_per_rgb as u32, ZPixmap as i32, std::ptr::null(), shminfo.as_ref().get_ref(), self.area.0, self.area.1) as *mut XImage;
+                let ximg = XShmCreateImage(self.display.connection, vis, (*vis).bits_per_rgb as u32, ZPixmap as i32, std::ptr::null(), shminfo.as_ref().get_ref(), self.area.0, self.area.1) as *mut XImage;
 
                 shminfo.shmid = shmget(IPC_PRIVATE, ((*ximg).bytes_per_line * (*ximg).height) as usize, IPC_CREAT|0o600);
                 if shminfo.shmid == -1 {
