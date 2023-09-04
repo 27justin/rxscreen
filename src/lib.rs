@@ -56,6 +56,9 @@ pub mod monitor;
 #[cfg(feature = "shm")]
 pub mod shm;
 
+#[cfg(feature = "mouse")]
+pub mod mouse;
+
 use ffi::{*, constants::{AllPlanes, ZPixmap}};
 
 

@@ -11,3 +11,7 @@ pub use shm::*;
 
 #[cfg(feature = "xrandr")]
 pub mod xrandr;
+
+#[cfg(feature = "mouse")]
+pub mod mouse;
+
