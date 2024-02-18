@@ -1,4 +1,5 @@
 use crate::Display;
+use core::ffi::{c_int, c_uint};
 
 impl Display {
     #[cfg(feature = "xrandr")]
@@ -13,7 +14,6 @@ impl Display {
     /// }
     pub fn root_mouse_position(&self) -> Option<(i32, i32)> {
         use crate::ffi::{mouse::XQueryPointer, XWindow};
-        use std::ffi::{c_int, c_uint};
         unsafe {
             let mut root: XWindow = 0;
             let mut child: XWindow = 0;
