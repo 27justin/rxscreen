@@ -1,4 +1,4 @@
-use libc::c_int;
+use core::ffi::c_int;
 
 use crate::ffi::*;
 

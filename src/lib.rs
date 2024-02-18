@@ -44,7 +44,8 @@
 
 
 
-use std::ffi::{CString, c_char};
+use core::ffi::c_char;
+use std::ffi::CString;
 
 pub mod ffi;
 pub use ffi::{Rgb8, Bgr8};
