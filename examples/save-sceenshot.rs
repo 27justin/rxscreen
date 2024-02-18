@@ -1,5 +1,5 @@
 // NOTE:
-// This example required the "save" feature of this crate.
+// This example requires the "save" feature of this crate.
 //
 
 use rxscreen::Display;

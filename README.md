@@ -10,6 +10,7 @@ A simple wrapper over libx11 to take screenshots.
 * save (save screenshots directly to file)
 * MIT-SHM (use the MIT-SHM extension to rapidly take screenshots, used for screenrecording and similar)
 * Xrandr (use Xrandr to query monitors connected to the X11 server)
+* Mouse (query the mouse position)
 
 # Planned features
 * Graphics, to allow creating own displays and drawing on them.
