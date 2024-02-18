@@ -30,6 +30,7 @@
 //!
 
 
+use core::ffi::{c_char, c_void};
 use crate::{Display, Image, ffi::{*, constants::*}};
 use std::pin::Pin;
 
@@ -68,7 +69,7 @@ impl<'a> SharedSession<'a> {
 }
 impl<'a> Drop for SharedSession<'a> {
     fn drop(&mut self) {
-        use libc::{shmdt, shmctl, shmid_ds, IPC_RMID, c_void};
+        use libc::{shmdt, shmctl, shmid_ds, IPC_RMID};
         unsafe {
             XShmDetach(self.display.connection, self.shminfo.as_ref().get_ref());
             shmdt((*self.shminfo).shmaddr as *const c_void);
@@ -139,7 +140,6 @@ impl<'a> ShmBuilder<'a> {
         unsafe {
             use libc::{shmget, shmat};
             use libc::{IPC_PRIVATE, IPC_CREAT};
-            use libc::{c_char, c_void};
 
             if XShmQueryExtension(self.display.connection) {
                 let vis = XDefaultVisual(self.display.connection, 0);
