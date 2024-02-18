@@ -44,7 +44,7 @@
 
 
 
-use std::ffi::CString;
+use std::ffi::{CString, c_char};
 
 pub mod ffi;
 pub use ffi::{Rgb8, Bgr8};
@@ -55,6 +55,9 @@ pub mod monitor;
 
 #[cfg(feature = "shm")]
 pub mod shm;
+
+#[cfg(feature = "mouse")]
+pub mod mouse;
 
 use ffi::{*, constants::{AllPlanes, ZPixmap}};
 
@@ -178,7 +181,7 @@ impl Display {
 impl Image {
     pub unsafe fn from_raw_parts(display: &Display, data: *const u8, width: u32, height: u32) -> Self {
         let visual = XDefaultVisual(display.connection, 0);
-        let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const i8, width, height, 32, 0);
+        let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const c_char, width, height, 32, 0);
         // TODO: check ximg for null-ptr
         Self {
             raw: ximg
@@ -232,7 +235,7 @@ impl Image {
             let img_size = (width * height * (32 / 8)) as usize;
             let data = libc::malloc(img_size);
 
-            let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const i8, width, height, 32, 0);
+            let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const c_char, width, height, 32, 0);
             Self {
                 raw: ximg
             }

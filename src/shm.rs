@@ -31,7 +31,6 @@
 
 
 use crate::{Display, Image, ffi::{*, constants::*}};
-use std::ops::Deref;
 use std::pin::Pin;
 
 #[derive(PartialEq, Debug)]
@@ -140,7 +139,7 @@ impl<'a> ShmBuilder<'a> {
         unsafe {
             use libc::{shmget, shmat};
             use libc::{IPC_PRIVATE, IPC_CREAT};
-            use libc::c_void;
+            use libc::{c_char, c_void};
 
             if XShmQueryExtension(self.display.connection) {
                 let vis = XDefaultVisual(self.display.connection, 0);
@@ -149,14 +148,14 @@ impl<'a> ShmBuilder<'a> {
                 //libc::memset(shminfo as *mut c_void, 0, std::mem::size_of::<XShmSegmentInfo>());
                 let mut shminfo = Box::pin(XShmSegmentInfo { shmseg: 0, shmid: 0, shmaddr: std::ptr::null(), read_only: 0});
 
-                let mut ximg = XShmCreateImage(self.display.connection, vis, (*vis).bits_per_rgb as u32, ZPixmap as i32, std::ptr::null(), shminfo.as_ref().get_ref(), self.area.0, self.area.1) as *mut XImage;
+                let ximg = XShmCreateImage(self.display.connection, vis, (*vis).bits_per_rgb as u32, ZPixmap as i32, std::ptr::null(), shminfo.as_ref().get_ref(), self.area.0, self.area.1) as *mut XImage;
 
                 shminfo.shmid = shmget(IPC_PRIVATE, ((*ximg).bytes_per_line * (*ximg).height) as usize, IPC_CREAT|0o600);
                 if shminfo.shmid == -1 {
                     return Err(ShmError::ShmInitFailed);
                 }
 
-                let memory_addr = shmat((*shminfo).shmid, 0 as *const c_void, 0) as *mut i8;
+                let memory_addr = shmat((*shminfo).shmid, 0 as *const c_void, 0) as *mut c_char;
                 shminfo.shmaddr = memory_addr;
                 (*ximg).data = memory_addr;
                 shminfo.read_only = 0;

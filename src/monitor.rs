@@ -90,4 +90,15 @@ impl Monitor {
     pub fn primary(&self) -> bool {
         self.primary
     }
+
+    #[cfg(feature = "mouse")]
+    /// Translates a position from display.root_mouse_position) to a position relative to the monitor
+    pub fn mouse_to_local(&self, root_pos: (i32, i32)) -> Option<(i32, i32)> {
+        let local_pos = (root_pos.0 - self.x, root_pos.1 - self.y);
+        if local_pos.0 >= 0 && local_pos.0 <= self.width && local_pos.1 >= 0 && local_pos.1 <= self.height {
+            Some(local_pos)
+        } else {
+            None
+        }
+    }
 }
