@@ -139,7 +139,7 @@ impl<'a> ShmBuilder<'a> {
         unsafe {
             use libc::{shmget, shmat};
             use libc::{IPC_PRIVATE, IPC_CREAT};
-            use libc::c_void;
+            use libc::{c_char, c_void};
 
             if XShmQueryExtension(self.display.connection) {
                 let vis = XDefaultVisual(self.display.connection, 0);
@@ -155,7 +155,7 @@ impl<'a> ShmBuilder<'a> {
                     return Err(ShmError::ShmInitFailed);
                 }
 
-                let memory_addr = shmat((*shminfo).shmid, 0 as *const c_void, 0) as *mut i8;
+                let memory_addr = shmat((*shminfo).shmid, 0 as *const c_void, 0) as *mut c_char;
                 shminfo.shmaddr = memory_addr;
                 (*ximg).data = memory_addr;
                 shminfo.read_only = 0;
