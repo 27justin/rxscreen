@@ -200,6 +200,12 @@ impl Image {
         }
     }
 
+    pub fn bytes_per_line(&self) -> i32 {
+        unsafe {
+            (*self.raw).bytes_per_line
+        }
+    }
+
 	/// Turns the internal data pointer to a slice of [`Bgr8`]
 	///
 	/// ```rust
