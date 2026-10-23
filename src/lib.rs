@@ -37,13 +37,6 @@
 //! }
 //!
 
-
-
-
-
-
-
-
 use core::ffi::c_char;
 use std::ffi::CString;
 
@@ -61,7 +54,6 @@ pub mod shm;
 pub mod mouse;
 
 use ffi::{*, constants::{AllPlanes, ZPixmap}};
-
 
 pub struct Display {
 	connection: ffi::XDisplay,
@@ -101,12 +93,11 @@ impl Display {
 				let display = unsafe { XOpenDisplay(location.as_ptr()) };
 				if !display.is_null() {
 					let mut default_window = unsafe { XDefaultRootWindow(display) };
-					//let mut default_window = unsafe { XRootWindow(display, 0) };
-	
+
 					let (mut width, mut height)= (0u32, 0u32);
 					unsafe { XGetGeometry(display, default_window, &mut default_window, &mut 0, 
 						&mut 0, &mut width, &mut height, &mut 0, &mut 0) };
-	
+
 					Ok(Self {
 						connection: display,
 						window: default_window,
@@ -176,35 +167,38 @@ impl Display {
 			Err(())
 		}
 	}
-
 }
 
 impl Image {
-    pub unsafe fn from_raw_parts(display: &Display, data: *const u8, width: u32, height: u32) -> Self {
-        let visual = XDefaultVisual(display.connection, 0);
-        let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const c_char, width, height, 32, 0);
-        // TODO: check ximg for null-ptr
-        Self {
-            raw: ximg
-        }
-    }
+	pub unsafe fn from_raw_parts(display: &Display, data: *const u8, width: u32, height: u32) -> Self {
+		let visual = XDefaultVisual(display.connection, 0);
+		let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const c_char, width, height, 32, 0);
+		// TODO: check ximg for null-ptr
+		Self {
+			raw: ximg
+		}
+	}
 
-    pub fn width(&self) -> i32 {
-        unsafe {
-            (*self.raw).width
-        }
-    }
-    pub fn height(&self) -> i32 {
-        unsafe {
-            (*self.raw).height
-        }
-    }
+	/// Return the image width
+	pub fn width(&self) -> i32 {
+		unsafe {
+			(*self.raw).width
+		}
+	}
 
-    pub fn bytes_per_line(&self) -> i32 {
-        unsafe {
-            (*self.raw).bytes_per_line
-        }
-    }
+	/// Return the image height
+	pub fn height(&self) -> i32 {
+		unsafe {
+			(*self.raw).height
+		}
+	}
+
+	/// Return the image stride (bytes per line)
+	pub fn bytes_per_line(&self) -> i32 {
+		unsafe {
+			(*self.raw).bytes_per_line
+		}
+	}
 
 	/// Turns the internal data pointer to a slice of [`Bgr8`]
 	///
@@ -212,11 +206,11 @@ impl Image {
 	/// # use rxscreen::{Display, Bgr8, Rgb8};
 	/// // Turn Bgr8 into Rgb8
 	/// if let Ok(display) = Display::new(":0.0") {
-	///     let capture = display.capture();
-	///     let rgb_buffer: Vec<Rgb8> = unsafe{ capture.unwrap().as_raw_slice() }
-	///                                 .into_iter()
-	///                                 .map(|bgr| Rgb8::from(bgr))
-	///                                 .collect();
+	///		let capture = display.capture();
+	///		let rgb_buffer: Vec<Rgb8> = unsafe{ capture.unwrap().as_raw_slice() }
+	///									.into_iter()
+	///									.map(|bgr| Rgb8::from(bgr))
+	///									.collect();
 	/// }
 	/// ```
 	pub unsafe fn as_raw_slice<'a>(&self) -> &'a [Bgr8] {
@@ -224,35 +218,35 @@ impl Image {
 		std::slice::from_raw_parts((*self.raw).data as *const Bgr8, blob_length)
 	}
 
-    /// Returns a slice of the raw image data
-    pub unsafe fn as_bytes<'a>(&'a self) -> &'a [u8] {
-        let length = self.width() * self.height() * ((*self.raw).depth / 8);
-        std::slice::from_raw_parts((*self.raw).data as *const u8, length as usize)
-    }
-    pub unsafe fn as_bytes_mut<'a>(&'a mut self) -> &'a mut [u8] {
-        let length = self.width() * self.height() * ((*self.raw).depth / 8);
-        let slice = std::slice::from_raw_parts_mut((*self.raw).data as *mut u8, length as usize);
-        slice
-    }
+	/// Returns a slice of the raw image data
+	pub unsafe fn as_bytes<'a>(&'a self) -> &'a [u8] {
+		let length = self.width() * self.height() * ((*self.raw).depth / 8);
+		std::slice::from_raw_parts((*self.raw).data as *const u8, length as usize)
+	}
+	pub unsafe fn as_bytes_mut<'a>(&'a mut self) -> &'a mut [u8] {
+		let length = self.width() * self.height() * ((*self.raw).depth / 8);
+		let slice = std::slice::from_raw_parts_mut((*self.raw).data as *mut u8, length as usize);
+		slice
+	}
 
-    /// Create a new empty image through the X11 `XCreateImage` function.
-    pub fn empty(display: &Display, width: u32, height: u32) -> Self {
-        unsafe {
-            let visual = XDefaultVisual(display.connection, 0);
-            let img_size = (width * height * (32 / 8)) as usize;
-            let data = libc::malloc(img_size);
+	/// Create a new empty image through the X11 `XCreateImage` function.
+	pub fn empty(display: &Display, width: u32, height: u32) -> Self {
+		unsafe {
+			let visual = XDefaultVisual(display.connection, 0);
+			let img_size = (width * height * (32 / 8)) as usize;
+			let data = libc::malloc(img_size);
 
-            let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const c_char, width, height, 32, 0);
-            Self {
-                raw: ximg
-            }
-        }
-    }
+			let ximg = XCreateImage(display.connection, visual, 24, ZPixmap as i32, 0, data as *const c_char, width, height, 32, 0);
+			Self {
+				raw: ximg
+			}
+		}
+	}
 
-    /// Returns the pointer for the internal data buffer.
-    pub unsafe fn as_ptr(&self) -> *const u8 {
-        (*self.raw).data as *const u8
-    }
+	/// Returns the pointer for the internal data buffer.
+	pub unsafe fn as_ptr(&self) -> *const u8 {
+		(*self.raw).data as *const u8
+	}
 
 	#[cfg(feature = "save")]
 	/// Saves the image to file
